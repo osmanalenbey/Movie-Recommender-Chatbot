@@ -1,0 +1,8 @@
+streamlit
+openai
+pandas
+sklearn
+langchain
+shutil
+os
+kaggle
