@@ -5,5 +5,4 @@ scikit-learn
 langchain
 langchain_openai
 kaggle
-random
 difflib
