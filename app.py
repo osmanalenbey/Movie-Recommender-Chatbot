@@ -8,11 +8,6 @@ from langchain_openai import ChatOpenAI
 from langchain.agents import initialize_agent
 from langchain.agents import AgentType
 
-import kaggle
-
-import shutil
-import os
-
 from sklearn.preprocessing import MultiLabelBinarizer, MinMaxScaler
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -22,6 +17,8 @@ from difflib import get_close_matches
 
 import random
 
+import shutil
+import os
 # Get the user's home directory dynamically
 home_dir = os.path.expanduser("~")  # This will return C:\Users\YourUsername on Windows
 
@@ -35,6 +32,9 @@ os.makedirs(destination_dir, exist_ok=True)
 
 # Move the file
 shutil.copy(source, destination)
+
+import kaggle
+
 
 
 # Streamlit Page Config
