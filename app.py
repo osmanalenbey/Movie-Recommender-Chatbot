@@ -8,11 +8,19 @@ from langchain_openai import ChatOpenAI
 from langchain.agents import initialize_agent
 from langchain.agents import AgentType
 
-#import kaggle
-
+import kaggle
 
 import shutil
 import os
+
+from sklearn.preprocessing import MultiLabelBinarizer, MinMaxScaler
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from scipy.sparse import hstack, csr_matrix
+
+from difflib import get_close_matches
+
+import random
 
 # Get the user's home directory dynamically
 home_dir = os.path.expanduser("~")  # This will return C:\Users\YourUsername on Windows
@@ -52,7 +60,6 @@ def create_movie_dataframe(dataset='artificial'):
         print("Artificial movie data generated successfully!")
 
     elif dataset=='imdb_top_1000':
-        import kaggle
 
         # Define dataset name and output directory
         dataset_name = "harshitshankhdhar/imdb-dataset-of-top-1000-movies-and-tv-shows"
@@ -71,16 +78,7 @@ def create_movie_dataframe(dataset='artificial'):
 # movies = create_movie_dataframe(dataset='artificial')
 movies = create_movie_dataframe(dataset='imdb_top_1000')
 
-
-from sklearn.preprocessing import MultiLabelBinarizer, MinMaxScaler
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-from scipy.sparse import hstack
-
 # --- Build enhanced feature matrix ---
-
-# Assume column names are as follows (adjust if different)
-# movies['genres'], movies['Director'], movies['Star1'], movies['ratings'], movies['Released_Year']
 
 movies['genres'] = movies['genres'].str.split(', ')
 movies['Director'] = movies['Director'].fillna('')
@@ -109,9 +107,6 @@ star_encoded = star_vec.fit_transform(movies['Star1'])
 # Normalize rating and year
 scaler = MinMaxScaler()
 scaled_numeric = scaler.fit_transform(movies[['ratings', 'Released_Year']])
-
-# Combine all
-from scipy.sparse import hstack, csr_matrix
 
 final_feature_matrix = hstack([genre_encoded, director_encoded, star_encoded, scaled_numeric])
 final_feature_matrix = final_feature_matrix.tocsr()  # <-- Add this line
@@ -146,6 +141,12 @@ def recommend_for_mood(mood, num_recommendations=5):
     top = filtered.sort_values(by='ratings', ascending=False).head(num_recommendations)
     return top[['title', 'ratings']].values.tolist()
 
+def find_closest_title(user_input, titles, cutoff=0.7):
+    user_input = user_input.lower()
+    title_matches = get_close_matches(user_input, [t.lower() for t in titles], n=1, cutoff=cutoff)
+    if title_matches:
+        return title_matches[0]
+    return None
 
 # Define LangChain Tool
 def get_movie_recommendation(movie_name):
@@ -198,8 +199,6 @@ agent = initialize_agent(
 # Initialize session states
 if "messages" not in st.session_state:
     st.session_state.messages = []
-if "feedback_shown" not in st.session_state:
-    st.session_state.feedback_shown = False
 
 # Display chat messages
 for message in st.session_state.messages:
@@ -216,14 +215,29 @@ if prompt:
 
     client = openai.OpenAI()  # This uses your environment variable OPENAI_API_KEY
 
+    def detect_mood(prompt):
+        system = "You are a mood classifier. Based on the user's message, output the user's current emotional state as a single word like 'happy', 'sad', 'tired', 'romantic', 'anxious', etc. Do not explain."
+        
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0
+        )
+        mood = response.choices[0].message.content.strip().lower()
+        return mood
+
+
     def is_recommendation_request(prompt):
         intent_prompt = f"""You are an assistant that classifies user messages.
 
-    Determine whether the following message is asking for a movie recommendation:
+                            Determine whether the following message is asking for a movie recommendation:
 
-    "{prompt}"
+                            "{prompt}"
 
-    Respond with only "yes" or "no"."""
+                            Respond with only "yes" or "no"."""
 
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",  # or "gpt-4" if needed
@@ -236,11 +250,72 @@ if prompt:
 
         reply = response.choices[0].message.content.strip().lower()
         return reply == "yes"
+          
+    def format_recommendations(movie_list, label, is_mood=False, fuzzy_matched=False):
+        if isinstance(movie_list, str) or "not found" in str(movie_list[0]).lower():
+            return f"🎬 Sorry, I couldn't find anything for **{label}**. Want to try another movie or tell me what mood you're in?"
+
+        movie_list = movie_list[:5]
+        movies = [f"*{title}*" for title, _ in movie_list]
+
+        # Intro templates
+        mood_intros = [
+            f"If you're in a **{label}** mood, you might enjoy ",
+            f"Feeling **{label}**? Then you might like ",
+            f"To match that **{label}** vibe, how about ",
+            f"When you're feeling **{label}**, these might be great picks: "
+        ]
+
+        title_intros = [
+            f"Since you mentioned **{label.title()}**, I'd recommend ",
+            f"If you liked **{label.title()}**, you may also enjoy ",
+            f"Based on **{label.title()}**, here are a few you might love: ",
+            f"Thinking of **{label.title()}**? These could be similar in spirit: "
+        ]
+
+        intro = random.choice(mood_intros if is_mood else title_intros)
+
+        # Body
+        if len(movies) == 1:
+            body = f"{movies[0]}."
+        elif len(movies) == 2:
+            body = f"{movies[0]} or {movies[1]}."
+        else:
+            body = ", ".join(movies[:-1]) + f", and {movies[-1]}."
+
+        # Outro options
+        outros = [
+            " Let me know if you'd like more suggestions!",
+            " I can suggest more if you're interested.",
+            " Feel free to ask for another kind of vibe.",
+            " Let me know what you think!",
+            ""
+        ]
+        outro = random.choice(outros)
+
+        return intro + body + outro
+
+
 
     if is_recommendation_request(prompt):
-        response = agent.run(prompt)
+        # Try fuzzy match from entire title list
+        matched_title = find_closest_title(prompt, movies['title'])
+
+        if matched_title:
+            recommendations = recommend_movies(matched_title)
+            response = format_recommendations(recommendations, matched_title, fuzzy_matched=True)
+
+        else:
+            # Use LLM to detect mood
+            mood = detect_mood(prompt)
+            if mood in mood_to_genre:
+                recommendations = recommend_for_mood(mood)
+                response = format_recommendations(recommendations, mood, is_mood=True)
+            else:
+                response = f"I'm not sure what mood you're in — could you tell me more about how you're feeling or what you're in the mood for?"
     else:
         response = llm.invoke(prompt)
+
 
 
 
@@ -250,20 +325,6 @@ if prompt:
     with st.chat_message("assistant"):
         st.markdown(response)
     st.session_state.messages.append({"role": "assistant", "content": response})
-
-# Feedback Button
-if not st.session_state.feedback_shown and len(st.session_state.messages) > 1:
-    if st.button("Get Feedback"):
-        st.session_state.feedback_shown = True
-        conversation_history = "\n".join([f"{msg['role']}: {msg['content']}" for msg in st.session_state.messages])
-        feedback_response = openai.ChatCompletion.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "Give a score (1-10) and feedback on the quality of the recommendations."},
-                {"role": "user", "content": f"Evaluate this interaction: {conversation_history}"}
-            ]
-        )
-        st.write(feedback_response["choices"][0]["message"]["content"])
 
 # Restart Button
 if st.button("Restart Chat"):
