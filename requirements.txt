@@ -3,3 +3,4 @@ openai
 pandas
 scikit-learn
 langchain
+langchain_openai
