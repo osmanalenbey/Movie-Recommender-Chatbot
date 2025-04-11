@@ -304,7 +304,7 @@ if prompt:
 
         # Find the poster row from the full DataFrame
         matched = full_catalog_df[full_catalog_df['title'].str.strip().str.lower() == best_movie.strip().lower()]
-        print(f"full_catalog_df[full_catalog_df['title'].str.strip().str.lower() is {full_catalog_df[full_catalog_df['title'].str.strip().str.lower()}")
+        print(f"full_catalog_df['title'].str.strip().str.lower() is {full_catalog_df['title'].str.strip().str.lower()}")
         print(f"best_movie.strip().lower() is {best_movie.strip().lower()}")
 
         if not matched.empty:
