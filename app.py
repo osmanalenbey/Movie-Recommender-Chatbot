@@ -296,30 +296,44 @@ if prompt:
             ""
         ]
         outro = random.choice(outros)
-   
-        # Display posters
-        for title, _ in movie_list:
-            st.markdown(f"**{title}**")
-    
-            # poster_row = movies[movies['title'].str.lower() == title.lower()]
-            poster_row = movies.index(f"*{title}*")
-            # if not poster_row.empty:
-            poster_url = poster_row.iloc[0]['Poster_Link']
+        
+        return intro + body + outro
+
+    def display_posters(best_movie, full_catalog_df):
+        st.markdown(f"**{best_movie}**")
+
+        # Find the poster row from the full DataFrame
+        matched = full_catalog_df[full_catalog_df['title'].str.strip().str.lower() == best_movie.strip().lower()]
+
+        if not matched.empty:
+            poster_url = matched.iloc[0]['Poster_Link']
             try:
-                img_data = requests.get(poster_url).content
+                img_data = requests.get(poster_url, timeout=4).content
                 img = Image.open(io.BytesIO(img_data))
-
-                # Optional: boost vibrancy
                 img = ImageEnhance.Color(img).enhance(1.5)
-
                 st.image(img, width=160)
             except:
-                pass
-                # st.text("📷 Poster unavailable.")
-            # else:
-            #     st.text("📷 Poster not found in catalog.")
-
-        return intro + body + outro
+                st.text("📷 Poster unavailable.")
+        else:
+            st.text("📷 Poster not found in catalog.")
+                
+        # for title, _ in movie_list:
+        #     st.markdown(f"**{title}**")
+    
+        #     # Find the poster row from the full DataFrame
+        #     matched = full_catalog_df[full_catalog_df['title'].str.strip().str.lower() == title.strip().lower()]
+    
+        #     if not matched.empty:
+        #         poster_url = matched.iloc[0]['Poster_Link']
+        #         try:
+        #             img_data = requests.get(poster_url, timeout=4).content
+        #             img = Image.open(io.BytesIO(img_data))
+        #             img = ImageEnhance.Color(img).enhance(1.5)
+        #             st.image(img, width=160)
+        #         except:
+        #             st.text("📷 Poster unavailable.")
+        #     else:
+        #         st.text("📷 Poster not found in catalog.")
         
     if is_recommendation_request(prompt):
         # Try fuzzy match from entire title list
@@ -328,6 +342,7 @@ if prompt:
         if matched_title:
             recommendations = recommend_movies(matched_title)
             response = format_recommendations(recommendations, matched_title, fuzzy_matched=True)
+            display_posters(recommendations[:1], movies)
 
         else:
             # Use LLM to detect mood
@@ -335,6 +350,7 @@ if prompt:
             if mood in mood_to_genre:
                 recommendations = recommend_for_mood(mood)
                 response = format_recommendations(recommendations, mood, is_mood=True)
+                display_posters(recommendations[:1], movies)
             else:
                 response = f"I'm not sure what mood you're in — could you tell me more about how you're feeling or what you're in the mood for?"
     else:
