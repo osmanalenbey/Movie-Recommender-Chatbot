@@ -344,7 +344,7 @@ if prompt:
         if matched_title:
             recommendations = recommend_movies(matched_title)
             response = format_recommendations(recommendations, matched_title, fuzzy_matched=True)
-            display_posters(recommendations[:1], movies)
+            display_posters(recommendations[0], movies)
 
         else:
             # Use LLM to detect mood
@@ -352,7 +352,7 @@ if prompt:
             if mood in mood_to_genre:
                 recommendations = recommend_for_mood(mood)
                 response = format_recommendations(recommendations, mood, is_mood=True)
-                display_posters(recommendations[:1], movies)
+                display_posters(recommendations[0], movies)
             else:
                 response = f"I'm not sure what mood you're in — could you tell me more about how you're feeling or what you're in the mood for?"
     else:
