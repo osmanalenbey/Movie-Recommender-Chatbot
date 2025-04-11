@@ -303,19 +303,19 @@ if prompt:
     
             # poster_row = movies[movies['title'].str.lower() == title.lower()]
             poster_row = movies.index(f"*{title}*")
-            if not poster_row.empty:
-                poster_url = poster_row.iloc[0]['Poster_Link']
-                try:
-                    img_data = requests.get(poster_url).content
-                    img = Image.open(io.BytesIO(img_data))
-    
-                    # Optional: boost vibrancy
-                    img = ImageEnhance.Color(img).enhance(1.5)
-    
-                    st.image(img, width=160)
-                except:
-                    pass
-                    # st.text("📷 Poster unavailable.")
+            # if not poster_row.empty:
+            poster_url = poster_row.iloc[0]['Poster_Link']
+            try:
+                img_data = requests.get(poster_url).content
+                img = Image.open(io.BytesIO(img_data))
+
+                # Optional: boost vibrancy
+                img = ImageEnhance.Color(img).enhance(1.5)
+
+                st.image(img, width=160)
+            except:
+                pass
+                # st.text("📷 Poster unavailable.")
             # else:
             #     st.text("📷 Poster not found in catalog.")
 
