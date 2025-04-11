@@ -302,7 +302,7 @@ if prompt:
             st.markdown(f"**{title}**")
     
             # poster_row = movies[movies['title'].str.lower() == title.lower()]
-            poster_row = movies.index(title)
+            poster_row = movies.index(f"*{title}*")
             if not poster_row.empty:
                 poster_url = poster_row.iloc[0]['Poster_Link']
                 try:
