@@ -17,6 +17,10 @@ from difflib import get_close_matches
 
 import random
 
+import requests
+from PIL import Image, ImageEnhance
+import io
+
 import shutil
 import os
 # Get the user's home directory dynamically
@@ -293,10 +297,31 @@ if prompt:
         ]
         outro = random.choice(outros)
 
+        # Display full text sentence
+        st.markdown(intro + body + outro)
+    
+        # Display posters
+        for title, _ in movie_list:
+            st.markdown(f"**{title}**")
+    
+            poster_row = movies[movies['title'].str.lower() == title.lower()]
+            if not poster_row.empty:
+                poster_url = poster_row.iloc[0]['Poster_Link']
+                try:
+                    img_data = requests.get(poster_url).content
+                    img = Image.open(io.BytesIO(img_data))
+    
+                    # Optional: boost vibrancy
+                    img = ImageEnhance.Color(img).enhance(1.5)
+    
+                    st.image(img, width=160)
+                except:
+                    st.text("📷 Poster unavailable.")
+            else:
+                st.text("📷 Poster not found in catalog.")
+
         return intro + body + outro
-
-
-
+        
     if is_recommendation_request(prompt):
         # Try fuzzy match from entire title list
         matched_title = find_closest_title(prompt, movies['title'])
