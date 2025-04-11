@@ -296,15 +296,13 @@ if prompt:
             ""
         ]
         outro = random.choice(outros)
-
-        # Display full text sentence
-        st.markdown(intro + body + outro)
-    
+   
         # Display posters
         for title, _ in movie_list:
             st.markdown(f"**{title}**")
     
-            poster_row = movies[movies['title'].str.lower() == title.lower()]
+            # poster_row = movies[movies['title'].str.lower() == title.lower()]
+            poster_row = movies.index(title)
             if not poster_row.empty:
                 poster_url = poster_row.iloc[0]['Poster_Link']
                 try:
@@ -316,9 +314,10 @@ if prompt:
     
                     st.image(img, width=160)
                 except:
-                    st.text("📷 Poster unavailable.")
-            else:
-                st.text("📷 Poster not found in catalog.")
+                    pass
+                    # st.text("📷 Poster unavailable.")
+            # else:
+            #     st.text("📷 Poster not found in catalog.")
 
         return intro + body + outro
         
